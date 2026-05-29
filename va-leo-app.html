@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>VA LEO Field Tool</title>
+<style>
+  :root {
+    --bg: #0a0e1a; --surface: #141928; --surface2: #1c2438; --border: #2a3450;
+    --blue: #3b82f6; --blue-dark: #2563eb; --green: #22c55e; --red: #ef4444;
+    --yellow: #f59e0b; --text: #f1f5f9; --muted: #94a3b8; --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; padding-bottom: 2rem; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; position: sticky; top: 0; z-index: 100; }
+  .badge { background: var(--blue); color: white; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em; padding: 3px 7px; border-radius: 4px; text-transform: uppercase; }
+  header h1 { font-size: 1.1rem; font-weight: 700; }
+  .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 57px; z-index: 99; }
+  .tab { flex: 1; padding: 0.85rem; text-align: center; font-size: 0.8rem; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; letter-spacing: 0.03em; text-transform: uppercase; user-select: none; }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .panel { display: none; padding: 1.25rem; }
+  .panel.active { display: block; }
+
+  /* LOCATION */
+  .location-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; }
+  .loc-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
+  .loc-address { font-size: 1.4rem; font-weight: 700; line-height: 1.3; margin-bottom: 0.25rem; min-height: 2.5rem; }
+  .loc-block { font-size: 1rem; color: var(--blue); font-weight: 600; min-height: 1.5rem; }
+  .loc-coords { font-size: 0.75rem; color: var(--muted); margin-top: 0.75rem; font-family: monospace; }
+  .loc-accuracy { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--muted); margin-top: 0.4rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  .dot.yellow { background: var(--yellow); }
+  .dot.red { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+  .btn { width: 100%; padding: 1rem; border-radius: var(--radius); font-size: 1rem; font-weight: 700; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-primary { background: var(--blue); color: white; }
+  .btn-primary:active { background: var(--blue-dark); transform: scale(0.98); }
+  .btn-copy { background: var(--surface2); color: var(--text); border: 1px solid var(--border); margin-top: 0.75rem; }
+  .btn-copy.copied { background: #14532d; border-color: var(--green); color: var(--green); }
+  .report-format { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-top: 1rem; }
+  .report-line { font-size: 0.95rem; line-height: 1.8; font-family: 'Courier New', monospace; word-break: break-word; }
+
+  /* STICKERS */
+  .section-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 1.25rem 0 0.6rem; }
+  .section-label:first-child { margin-top: 0; }
+  .design-badge { display: inline-block; font-size: 0.6rem; font-weight: 700; padding: 2px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; }
+  .new-badge { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #86efac; }
+  .old-badge { background: rgba(148,163,184,0.1); border: 1px solid rgba(148,163,184,0.3); color: #94a3b8; }
+
+  .sticker-row { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 0.75rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .sticker-row::-webkit-scrollbar { display: none; }
+  .sticker-wrap { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
+  .sticker-wrap svg { display: block; border-radius: 4px; box-shadow: 0 2px 12px rgba(0,0,0,0.5); }
+  .exp-label { font-size: 0.62rem; color: var(--muted); font-weight: 600; }
+  .exp-pill { font-size: 0.58rem; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35); color: #f87171; padding: 1px 5px; border-radius: 3px; font-weight: 700; }
+
+  .info-box { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 0.85rem; font-size: 0.77rem; color: var(--muted); line-height: 1.6; margin-top: 1rem; }
+  .info-box strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">VA</div>
+  <h1>LEO Field Tool</h1>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('location')">📍 Location</div>
+  <div class="tab" onclick="switchTab('stickers')">🔍 Stickers & Tags</div>
+</div>
+
+<div class="panel active" id="panel-location">
+  <div class="location-card">
+    <div class="loc-label">Current Address</div>
+    <div class="loc-address" id="loc-address">—</div>
+    <div class="loc-block" id="loc-block"></div>
+    <div class="loc-accuracy">
+      <span class="dot" id="accuracy-dot"></span>
+      <span id="accuracy-text">Not tracking</span>
+    </div>
+    <div class="loc-coords" id="loc-coords"></div>
+  </div>
+  <button class="btn btn-primary" id="btn-locate" onclick="startLocation()">Get My Location</button>
+  <button class="btn btn-copy" id="btn-copy" onclick="copyAddress()" style="display:none">Copy for Report</button>
+  <div class="report-format" id="report-box" style="display:none">
+    <div class="loc-label">Report Format</div>
+    <div class="report-line" id="report-text"></div>
+  </div>
+</div>
+
+<div class="panel" id="panel-stickers">
+
+  <div class="section-label">Sticker Design Reference (Blank)
+    <span class="design-badge new-badge">NEW DESIGN 2025+</span>
+  </div>
+  <div class="sticker-row" id="row-blank"></div>
+
+  <div class="section-label">Expired — Green Sticker (Issued 2025, Expires 2026)
+    <span class="design-badge new-badge">NEW DESIGN</span>
+  </div>
+  <div class="sticker-row" id="row-2025"></div>
+
+  <div class="section-label">Expired — Old Sticker Design (Issued 2021–2024)
+    <span class="design-badge old-badge">PRE-2025 DESIGN</span>
+  </div>
+  <div class="sticker-row" id="row-old"></div>
+
+  <div class="section-label">Expired VA Registration Decals (Plate Tag)</div>
+  <div class="sticker-row" id="row-tags"></div>
+
+  <div class="info-box">
+    <strong>Today:</strong> <span id="today-disp"></span><br>
+    <strong>Grace period:</strong> Stickers are only enforceable starting the <strong>1st of the 4th month after expiration</strong> (e.g., expired Jan → enforceable May 1).<br>
+    Only stickers past that threshold are shown above.<br>
+    <strong>Sticker location:</strong> Bottom center of windshield.<br>
+    <strong>Decal location:</strong> Upper right corner of rear license plate.
+  </div>
+</div>
+
+<script>
+// ── TABS
+function switchTab(n) {
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['location','stickers'][i]===n));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+n).classList.add('active');
+}
+
+// ── LOCATION
+let watchId=null;
+function startLocation(){
+  if(!navigator.geolocation){document.getElementById('loc-address').textContent='Geolocation not supported.';return;}
+  document.getElementById('btn-locate').textContent='Locating…';
+  document.getElementById('btn-locate').disabled=true;
+  setAcc('pending','Acquiring GPS…');
+  if(watchId)navigator.geolocation.clearWatch(watchId);
+  watchId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,timeout:20000,maximumAge:5000});
+}
+async function onPos(p){
+  const{latitude:lat,longitude:lon,accuracy:acc}=p.coords;
+  setAcc(acc<=15?'green':acc<=50?'yellow':'red',`±${Math.round(acc)}m`);
+  document.getElementById('loc-coords').textContent=`${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+  document.getElementById('btn-locate').textContent='Refresh';
+  document.getElementById('btn-locate').disabled=false;
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,{headers:{'Accept-Language':'en-US,en'}});
+    const d=await r.json();
+    const num=d.address.house_number||'';
+    const road=d.address.road||d.address.pedestrian||'';
+    const city=d.address.city||d.address.town||d.address.village||d.address.county||'';
+    const block=num?`${Math.floor(parseInt(num)/100)*100} block of ${road}`:road;
+    const full=num?`${num} ${road}, ${city}, VA`:`${road}, ${city}, VA`;
+    document.getElementById('loc-address').textContent=full;
+    document.getElementById('loc-block').textContent=block;
+    document.getElementById('report-text').textContent=`Location: ${block}, ${city}, VA\nCoords: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+    document.getElementById('report-box').style.display='block';
+    document.getElementById('btn-copy').style.display='block';
+  }catch(e){document.getElementById('loc-address').textContent='Address lookup failed.';}
+}
+function onErr(e){
+  document.getElementById('loc-address').textContent=['','Location access denied.','Position unavailable.','Request timed out.'][e.code]||'Error.';
+  setAcc('red','Error');
+  document.getElementById('btn-locate').textContent='Try Again';
+  document.getElementById('btn-locate').disabled=false;
+}
+function setAcc(s,t){document.getElementById('accuracy-dot').className='dot '+s;document.getElementById('accuracy-text').textContent=t;}
+function copyAddress(){
+  const txt=document.getElementById('report-text').textContent;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const b=document.getElementById('btn-copy');b.textContent='✓ Copied!';b.classList.add('copied');
+    setTimeout(()=>{b.textContent='Copy for Report';b.classList.remove('copied');},2000);
+  }).catch(()=>{const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);});
+}
+
+// ── STICKER SVG BUILDERS
+const MN=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+// NEW 2025+ design — matches actual VSP sticker photo
+// Layout: top dark banner | left white box (month) | center seal+dogwood | right colored box (year 2-digit) | bottom QR codes
+function stickerNew(mo, yr, bgHex) {
+  const m = String(mo+1).padStart(2,'0');
+  const y2 = String(yr).slice(-2);
+  // darken bg for right panel
+  const darker = shadeHex(bgHex, -30);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 150" width="220" height="150">
+  <defs>
+    <pattern id="wm${mo}${yr}" x="0" y="0" width="60" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
+      <text x="0" y="14" font-family="Arial,sans-serif" font-size="5.5" fill="rgba(255,255,255,0.07)" font-weight="bold" letter-spacing="1">Commonwealth of Virginia</text>
+    </pattern>
+    <linearGradient id="rbg${mo}${yr}" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:${bgHex}"/>
+      <stop offset="100%" style="stop-color:${darker}"/>
+    </linearGradient>
+    <clipPath id="rc${mo}${yr}"><rect width="220" height="150" rx="5"/></clipPath>
+  </defs>
+
+  <!-- Outer border -->
+  <rect width="220" height="150" rx="5" fill="${bgHex}"/>
+  <!-- Watermark diagonal text -->
+  <rect width="220" height="150" rx="5" fill="url(#wm${mo}${yr})" clip-path="url(#rc${mo}${yr})"/>
+
+  <!-- Top dark banner -->
+  <rect x="0" y="0" width="220" height="22" rx="5" fill="rgba(0,0,0,0.45)"/>
+  <rect x="0" y="17" width="220" height="5" fill="rgba(0,0,0,0.45)"/>
+  <text x="110" y="15" font-family="Arial Black,sans-serif" font-size="9.5" font-weight="900" fill="white" text-anchor="middle" letter-spacing="1.5">VIRGINIA SAFETY INSPECTION</text>
+
+  <!-- LEFT white panel — month -->
+  <rect x="4" y="26" width="74" height="82" rx="3" fill="white"/>
+  <rect x="4" y="26" width="74" height="82" rx="3" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="0.5"/>
+  <!-- Month number -->
+  <text x="41" y="92" font-family="Arial Black,Impact,sans-serif" font-size="62" font-weight="900" fill="#111" text-anchor="middle" dominant-baseline="auto">${m}</text>
+  <!-- MONTH label -->
+  <text x="41" y="37" font-family="Arial,sans-serif" font-size="7" fill="#555" text-anchor="middle" letter-spacing="1">MONTH</text>
+
+  <!-- CENTER — state seal + dogwood -->
+  <!-- Dogwood petals (4 petals with notches) -->
+  <g transform="translate(110,67)">
+    <ellipse cx="0" cy="-19" rx="9" ry="16" fill="rgba(255,255,255,0.18)" transform="rotate(0)"/>
+    <ellipse cx="0" cy="-19" rx="9" ry="16" fill="rgba(255,255,255,0.18)" transform="rotate(90)"/>
+    <ellipse cx="0" cy="-19" rx="9" ry="16" fill="rgba(255,255,255,0.18)" transform="rotate(180)"/>
+    <ellipse cx="0" cy="-19" rx="9" ry="16" fill="rgba(255,255,255,0.18)" transform="rotate(270)"/>
+    <!-- Petal notch tips -->
+    <circle cx="0" cy="-30" r="2" fill="${shadeHex(bgHex,-20)}" opacity="0.6"/>
+    <circle cx="30" cy="0" r="2" fill="${shadeHex(bgHex,-20)}" opacity="0.6"/>
+    <circle cx="0" cy="30" r="2" fill="${shadeHex(bgHex,-20)}" opacity="0.6"/>
+    <circle cx="-30" cy="0" r="2" fill="${shadeHex(bgHex,-20)}" opacity="0.6"/>
+  </g>
+  <!-- Seal circle -->
+  <circle cx="110" cy="67" r="16" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.35)" stroke-width="1"/>
+  <circle cx="110" cy="67" r="13" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
+  <!-- VA seal text -->
+  <text x="110" y="63" font-family="Arial,sans-serif" font-size="5.5" fill="rgba(255,255,255,0.75)" text-anchor="middle" font-weight="bold">VIRGINIA</text>
+  <text x="110" y="70" font-family="Arial,sans-serif" font-size="4" fill="rgba(255,255,255,0.6)" text-anchor="middle">STATE SEAL</text>
+  <!-- Holographic shimmer arc -->
+  <path d="M 97 67 A 13 13 0 0 1 123 67" fill="none" stroke="rgba(150,220,255,0.5)" stroke-width="1.5"/>
+  <path d="M 97 67 A 13 13 0 0 0 123 67" fill="none" stroke="rgba(255,200,100,0.3)" stroke-width="0.8"/>
+
+  <!-- RIGHT colored panel — year -->
+  <rect x="142" y="26" width="74" height="82" rx="3" fill="url(#rbg${mo}${yr})"/>
+  <rect x="142" y="26" width="74" height="82" rx="3" fill="rgba(0,0,0,0.12)"/>
+  <text x="179" y="37" font-family="Arial,sans-serif" font-size="7" fill="rgba(255,255,255,0.7)" text-anchor="middle" letter-spacing="1">EXPIRES</text>
+  <text x="179" y="95" font-family="Arial Black,Impact,sans-serif" font-size="62" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="auto">${y2}</text>
+
+  <!-- Thin dividers between panels -->
+  <line x1="78" y1="26" x2="78" y2="108" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+  <line x1="142" y1="26" x2="142" y2="108" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+
+  <!-- Bottom QR strip -->
+  <rect x="0" y="108" width="220" height="42" fill="rgba(0,0,0,0.3)"/>
+
+  <!-- Large QR code (left) -->
+  <rect x="6" y="112" width="30" height="30" rx="2" fill="white"/>
+  <g transform="translate(7,113)" fill="#111">
+    <rect x="0" y="0" width="8" height="8"/><rect x="1" y="1" width="6" height="6" fill="white"/><rect x="2" y="2" width="4" height="4"/>
+    <rect x="10" y="0" width="8" height="8"/><rect x="11" y="1" width="6" height="6" fill="white"/><rect x="12" y="2" width="4" height="4"/>
+    <rect x="0" y="10" width="8" height="8"/><rect x="1" y="11" width="6" height="6" fill="white"/><rect x="2" y="12" width="4" height="4"/>
+    <rect x="10" y="10" width="3" height="3"/><rect x="14" y="10" width="4" height="2"/><rect x="14" y="13" width="2" height="2"/>
+    <rect x="10" y="14" width="5" height="2"/><rect x="10" y="17" width="2" height="2"/><rect x="13" y="17" width="5" height="2"/>
+    <rect x="10" y="20" width="3" height="3"/><rect x="14" y="21" width="4" height="2"/>
+    <rect x="0" y="19" width="2" height="2"/><rect x="3" y="20" width="4" height="2"/><rect x="2" y="23" width="6" height="2"/>
+    <rect x="0" y="25" width="3" height="3"/><rect x="5" y="25" width="2" height="4"/><rect x="8" y="26" width="4" height="2"/>
+  </g>
+  <text x="21" y="146" font-family="Arial,sans-serif" font-size="4" fill="rgba(255,255,255,0.45)" text-anchor="middle">VSP.VIRGINIA.GOV</text>
+
+  <!-- Serial number under large QR -->
+  <text x="21" y="142" font-family="monospace,sans-serif" font-size="4.5" fill="rgba(255,255,255,0.35)" text-anchor="middle">5900000</text>
+
+  <!-- Small QR code (right) -->
+  <rect x="184" y="116" width="20" height="20" rx="1.5" fill="white"/>
+  <g transform="translate(185,117)" fill="#111">
+    <rect x="0" y="0" width="5" height="5"/><rect x="1" y="1" width="3" height="3" fill="white"/><rect x="2" y="2" width="1" height="1"/>
+    <rect x="7" y="0" width="5" height="5"/><rect x="8" y="1" width="3" height="3" fill="white"/><rect x="9" y="2" width="1" height="1"/>
+    <rect x="0" y="7" width="5" height="5"/><rect x="1" y="8" width="3" height="3" fill="white"/><rect x="2" y="9" width="1" height="1"/>
+    <rect x="7" y="7" width="2" height="2"/><rect x="10" y="8" width="2" height="2"/><rect x="8" y="10" width="4" height="2"/>
+    <rect x="7" y="13" width="3" height="2"/><rect x="11" y="13" width="1" height="4"/>
+  </g>
+  <text x="194" y="140" font-family="monospace,sans-serif" font-size="4" fill="rgba(255,255,255,0.35)" text-anchor="middle">A0000001</text>
+
+  <!-- Outer border line -->
+  <rect width="220" height="150" rx="5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+</svg>`;
+}
+
+// OLD design (pre-2025) — matches 2019-era VSP sticker photo
+// Layout: top safety message | VIRGINIA SAFETY APPROVAL | left white box (month) | center seal | right year | bottom serial
+function stickerOld(mo, yr, bgHex) {
+  const m = String(mo+1).padStart(2,'0');
+  const y2 = String(yr).slice(-2);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150" width="200" height="150">
+  <defs>
+    <pattern id="owm${mo}${yr}" x="0" y="0" width="55" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
+      <text x="0" y="13" font-family="Arial,sans-serif" font-size="5" fill="rgba(255,255,255,0.06)" font-weight="bold">Commonwealth of Virginia</text>
+    </pattern>
+    <clipPath id="orc${mo}${yr}"><rect width="200" height="150" rx="5"/></clipPath>
+  </defs>
+
+  <rect width="200" height="150" rx="5" fill="${bgHex}"/>
+  <rect width="200" height="150" rx="5" fill="url(#owm${mo}${yr})" clip-path="url(#orc${mo}${yr})"/>
+
+  <!-- Top safety message band -->
+  <rect x="0" y="0" width="200" height="28" rx="5" fill="rgba(0,0,0,0.4)"/>
+  <rect x="0" y="23" width="200" height="5" fill="rgba(0,0,0,0.4)"/>
+  <text x="100" y="11" font-family="Arial Black,sans-serif" font-size="8" font-weight="900" fill="white" text-anchor="middle" letter-spacing="1">SEE LIGHTS? DO WHAT'S RIGHT.</text>
+  <text x="100" y="21" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#fbbf24" text-anchor="middle" letter-spacing="2">MOVE OVER</text>
+
+  <!-- VIRGINIA SAFETY APPROVAL label -->
+  <text x="100" y="37" font-family="Arial Black,sans-serif" font-size="7.5" font-weight="900" fill="rgba(255,255,255,0.85)" text-anchor="middle" letter-spacing="1">VIRGINIA SAFETY APPROVAL</text>
+  <line x1="8" y1="40" x2="192" y2="40" stroke="rgba(255,255,255,0.2)" stroke-width="0.7"/>
+
+  <!-- LEFT white box — month -->
+  <rect x="4" y="43" width="64" height="65" rx="3" fill="white"/>
+  <text x="36" y="50" font-family="Arial,sans-serif" font-size="6.5" fill="#666" text-anchor="middle" letter-spacing="0.5">MONTH</text>
+  <text x="36" y="100" font-family="Arial Black,Impact,sans-serif" font-size="55" font-weight="900" fill="#111" text-anchor="middle">${m}</text>
+
+  <!-- CENTER seal -->
+  <circle cx="100" cy="75" r="18" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  <circle cx="100" cy="75" r="14" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+  <text x="100" y="71" font-family="Arial,sans-serif" font-size="5.5" fill="rgba(255,255,255,0.7)" text-anchor="middle" font-weight="bold">VIRGINIA</text>
+  <text x="100" y="78" font-family="Arial,sans-serif" font-size="4" fill="rgba(255,255,255,0.55)" text-anchor="middle">STATE SEAL</text>
+  <text x="100" y="85" font-family="Arial,sans-serif" font-size="3.5" fill="rgba(255,255,255,0.45)" text-anchor="middle">VIRTUS</text>
+
+  <!-- Dividers -->
+  <line x1="68" y1="43" x2="68" y2="108" stroke="rgba(255,255,255,0.2)" stroke-width="0.8"/>
+  <line x1="132" y1="43" x2="132" y2="108" stroke="rgba(255,255,255,0.2)" stroke-width="0.8"/>
+
+  <!-- RIGHT — year -->
+  <text x="166" y="50" font-family="Arial,sans-serif" font-size="6.5" fill="rgba(255,255,255,0.7)" text-anchor="middle" letter-spacing="0.5">EXPIRES</text>
+  <text x="166" y="100" font-family="Arial Black,Impact,sans-serif" font-size="55" font-weight="900" fill="white" text-anchor="middle">${y2}</text>
+
+  <!-- Bottom strip -->
+  <rect x="0" y="108" width="200" height="42" fill="rgba(0,0,0,0.25)"/>
+  <line x1="0" y1="108" x2="200" y2="108" stroke="rgba(255,255,255,0.15)" stroke-width="0.7"/>
+  <text x="100" y="122" font-family="Arial,sans-serif" font-size="5.5" fill="rgba(255,255,255,0.5)" text-anchor="middle" letter-spacing="0.5">COMMONWEALTH OF VIRGINIA</text>
+  <text x="100" y="132" font-family="monospace,sans-serif" font-size="5" fill="rgba(255,255,255,0.3)" text-anchor="middle">VA-INSP-${yr}-${m}00001</text>
+
+  <rect width="200" height="150" rx="5" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+</svg>`;
+}
+
+// BLANK old design
+function stickerBlankOld(label, expYr, bgHex) {
+  const y2 = String(expYr).slice(-2);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150" width="200" height="150">
+  <defs>
+    <pattern id="bowm${expYr}" x="0" y="0" width="55" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
+      <text x="0" y="13" font-family="Arial,sans-serif" font-size="5" fill="rgba(255,255,255,0.06)" font-weight="bold">Commonwealth of Virginia</text>
+    </pattern>
+    <clipPath id="borc${expYr}"><rect width="200" height="150" rx="5"/></clipPath>
+  </defs>
+  <rect width="200" height="150" rx="5" fill="${bgHex}"/>
+  <rect width="200" height="150" rx="5" fill="url(#bowm${expYr})" clip-path="url(#borc${expYr})"/>
+  <rect x="0" y="0" width="200" height="28" rx="5" fill="rgba(0,0,0,0.4)"/>
+  <rect x="0" y="23" width="200" height="5" fill="rgba(0,0,0,0.4)"/>
+  <text x="100" y="11" font-family="Arial Black,sans-serif" font-size="8" font-weight="900" fill="white" text-anchor="middle" letter-spacing="1">SEE LIGHTS? DO WHAT'S RIGHT.</text>
+  <text x="100" y="21" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#fbbf24" text-anchor="middle" letter-spacing="2">MOVE OVER</text>
+  <text x="100" y="37" font-family="Arial Black,sans-serif" font-size="7.5" font-weight="900" fill="rgba(255,255,255,0.85)" text-anchor="middle" letter-spacing="1">VIRGINIA SAFETY APPROVAL</text>
+  <line x1="8" y1="40" x2="192" y2="40" stroke="rgba(255,255,255,0.2)" stroke-width="0.7"/>
+  <!-- LEFT blank month box -->
+  <rect x="4" y="43" width="64" height="65" rx="3" fill="white"/>
+  <text x="36" y="50" font-family="Arial,sans-serif" font-size="6.5" fill="#666" text-anchor="middle">MONTH</text>
+  <rect x="9" y="54" width="54" height="48" rx="2" fill="none" stroke="#ccc" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="36" y="82" font-family="Arial,sans-serif" font-size="8" fill="#bbb" text-anchor="middle">blank</text>
+  <!-- CENTER seal -->
+  <circle cx="100" cy="75" r="18" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  <circle cx="100" cy="75" r="14" fill="rgba(255,255,255,0.08)"/>
+  <text x="100" y="71" font-family="Arial,sans-serif" font-size="5.5" fill="rgba(255,255,255,0.7)" text-anchor="middle" font-weight="bold">VIRGINIA</text>
+  <text x="100" y="78" font-family="Arial,sans-serif" font-size="4" fill="rgba(255,255,255,0.55)" text-anchor="middle">STATE SEAL</text>
+  <line x1="68" y1="43" x2="68" y2="108" stroke="rgba(255,255,255,0.2)" stroke-width="0.8"/>
+  <line x1="132" y1="43" x2="132" y2="108" stroke="rgba(255,255,255,0.2)" stroke-width="0.8"/>
+  <!-- RIGHT year -->
+  <text x="166" y="50" font-family="Arial,sans-serif" font-size="6.5" fill="rgba(255,255,255,0.7)" text-anchor="middle">EXPIRES</text>
+  <text x="166" y="100" font-family="Arial Black,Impact,sans-serif" font-size="55" font-weight="900" fill="white" text-anchor="middle">${y2}</text>
+  <rect x="0" y="108" width="200" height="42" fill="rgba(0,0,0,0.25)"/>
+  <text x="100" y="122" font-family="Arial,sans-serif" font-size="5.5" fill="rgba(255,255,255,0.5)" text-anchor="middle" letter-spacing="0.5">COMMONWEALTH OF VIRGINIA</text>
+  <rect width="200" height="150" rx="5" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+</svg>`;
+}
+
+// Registration decal — year sticker only, matching real VA plate tab design.
+// Solid colored bg, VA+serial at top-left, small state icon top-right, huge 2-digit year.
+function stickerTag(mo, yr, bgHex, textColor) {
+  const y2 = String(yr).slice(-2).padStart(2,'0');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 62 72" width="93" height="108">
+  <rect x="0" y="0" width="62" height="72" rx="3" fill="${bgHex}"/>
+  <rect x="0" y="0" width="62" height="72" rx="3" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+  <!-- VA label top-left -->
+  <text x="3" y="9" font-family="Arial,Helvetica,sans-serif" font-size="5.5" fill="${textColor}" font-weight="bold">VA</text>
+  <!-- serial number -->
+  <text x="44" y="9" font-family="Arial,Helvetica,sans-serif" font-size="4" fill="${textColor}" text-anchor="end" opacity="0.7">0081420</text>
+  <!-- Small Virginia state outline silhouette top-right -->
+  <g transform="translate(45,1) scale(0.9)" fill="${textColor}" opacity="0.8">
+    <!-- simplified VA state shape -->
+    <path d="M0,5 L3,2 L9,1 L14,0 L17,2 L16,5 L13,8 L10,11 L7,13 L4,11 L1,8 Z"/>
+  </g>
+  <line x1="2" y1="11.5" x2="60" y2="11.5" stroke="${textColor}" stroke-width="0.4" opacity="0.35"/>
+  <!-- 2-digit year — huge, bold, white -->
+  <text x="31" y="63" font-family="Arial Black,Impact,Arial,sans-serif" font-size="54" font-weight="900" fill="${textColor}" text-anchor="middle">${y2}</text>
+</svg>`;
+}
+
+// BLANK sticker (no month filled in — reference example)
+function stickerBlank(label, expYr, bgHex) {
+  const y2 = String(expYr).slice(-2);
+  const darker = shadeHex(bgHex, -30);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 150" width="220" height="150">
+  <defs>
+    <pattern id="bwm${expYr}" x="0" y="0" width="60" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
+      <text x="0" y="14" font-family="Arial,sans-serif" font-size="5.5" fill="rgba(255,255,255,0.07)" font-weight="bold" letter-spacing="1">Commonwealth of Virginia</text>
+    </pattern>
+    <linearGradient id="brbg${expYr}" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:${bgHex}"/>
+      <stop offset="100%" style="stop-color:${darker}"/>
+    </linearGradient>
+    <clipPath id="brc${expYr}"><rect width="220" height="150" rx="5"/></clipPath>
+  </defs>
+  <rect width="220" height="150" rx="5" fill="${bgHex}"/>
+  <rect width="220" height="150" rx="5" fill="url(#bwm${expYr})" clip-path="url(#brc${expYr})"/>
+  <rect x="0" y="0" width="220" height="22" rx="5" fill="rgba(0,0,0,0.45)"/>
+  <rect x="0" y="17" width="220" height="5" fill="rgba(0,0,0,0.45)"/>
+  <text x="110" y="15" font-family="Arial Black,sans-serif" font-size="9.5" font-weight="900" fill="white" text-anchor="middle" letter-spacing="1.5">VIRGINIA SAFETY INSPECTION</text>
+  <!-- LEFT white panel — blank month box -->
+  <rect x="4" y="26" width="74" height="82" rx="3" fill="white"/>
+  <rect x="4" y="26" width="74" height="82" rx="3" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="0.5"/>
+  <text x="41" y="37" font-family="Arial,sans-serif" font-size="7" fill="#555" text-anchor="middle" letter-spacing="1">MONTH</text>
+  <!-- Dashed blank area where month number goes -->
+  <rect x="10" y="44" width="62" height="58" rx="2" fill="none" stroke="#ccc" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="41" y="77" font-family="Arial,sans-serif" font-size="8" fill="#bbb" text-anchor="middle">blank</text>
+  <!-- CENTER dogwood + seal -->
+  <g transform="translate(110,67)">
+    <ellipse cx="0" cy="-19" rx="9" ry="16" fill="rgba(255,255,255,0.18)" transform="rotate(0)"/>
+    <ellipse cx="0" cy="-19" rx="9" ry="16" fill="rgba(255,255,255,0.18)" transform="rotate(90)"/>
+    <ellipse cx="0" cy="-19" rx="9" ry="16" fill="rgba(255,255,255,0.18)" transform="rotate(180)"/>
+    <ellipse cx="0" cy="-19" rx="9" ry="16" fill="rgba(255,255,255,0.18)" transform="rotate(270)"/>
+    <circle cx="0" cy="-30" r="2" fill="${shadeHex(bgHex,-20)}" opacity="0.6"/>
+    <circle cx="30" cy="0" r="2" fill="${shadeHex(bgHex,-20)}" opacity="0.6"/>
+    <circle cx="0" cy="30" r="2" fill="${shadeHex(bgHex,-20)}" opacity="0.6"/>
+    <circle cx="-30" cy="0" r="2" fill="${shadeHex(bgHex,-20)}" opacity="0.6"/>
+  </g>
+  <circle cx="110" cy="67" r="16" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.35)" stroke-width="1"/>
+  <circle cx="110" cy="67" r="13" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
+  <text x="110" y="63" font-family="Arial,sans-serif" font-size="5.5" fill="rgba(255,255,255,0.75)" text-anchor="middle" font-weight="bold">VIRGINIA</text>
+  <text x="110" y="70" font-family="Arial,sans-serif" font-size="4" fill="rgba(255,255,255,0.6)" text-anchor="middle">STATE SEAL</text>
+  <path d="M 97 67 A 13 13 0 0 1 123 67" fill="none" stroke="rgba(150,220,255,0.5)" stroke-width="1.5"/>
+  <!-- RIGHT year panel -->
+  <rect x="142" y="26" width="74" height="82" rx="3" fill="url(#brbg${expYr})"/>
+  <rect x="142" y="26" width="74" height="82" rx="3" fill="rgba(0,0,0,0.12)"/>
+  <text x="179" y="37" font-family="Arial,sans-serif" font-size="7" fill="rgba(255,255,255,0.7)" text-anchor="middle" letter-spacing="1">EXPIRES</text>
+  <text x="179" y="95" font-family="Arial Black,Impact,sans-serif" font-size="62" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="auto">${y2}</text>
+  <line x1="78" y1="26" x2="78" y2="108" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+  <line x1="142" y1="26" x2="142" y2="108" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+  <!-- Bottom QR strip -->
+  <rect x="0" y="108" width="220" height="42" fill="rgba(0,0,0,0.3)"/>
+  <rect x="6" y="112" width="30" height="30" rx="2" fill="white"/>
+  <g transform="translate(7,113)" fill="#111">
+    <rect x="0" y="0" width="8" height="8"/><rect x="1" y="1" width="6" height="6" fill="white"/><rect x="2" y="2" width="4" height="4"/>
+    <rect x="10" y="0" width="8" height="8"/><rect x="11" y="1" width="6" height="6" fill="white"/><rect x="12" y="2" width="4" height="4"/>
+    <rect x="0" y="10" width="8" height="8"/><rect x="1" y="11" width="6" height="6" fill="white"/><rect x="2" y="12" width="4" height="4"/>
+    <rect x="10" y="10" width="3" height="3"/><rect x="14" y="10" width="4" height="2"/><rect x="10" y="14" width="5" height="2"/>
+  </g>
+  <text x="21" y="142" font-family="monospace,sans-serif" font-size="4.5" fill="rgba(255,255,255,0.35)" text-anchor="middle">VSP.VIRGINIA.GOV</text>
+  <rect x="184" y="116" width="20" height="20" rx="1.5" fill="white"/>
+  <g transform="translate(185,117)" fill="#111">
+    <rect x="0" y="0" width="5" height="5"/><rect x="1" y="1" width="3" height="3" fill="white"/><rect x="2" y="2" width="1" height="1"/>
+    <rect x="7" y="0" width="5" height="5"/><rect x="8" y="1" width="3" height="3" fill="white"/><rect x="9" y="2" width="1" height="1"/>
+    <rect x="0" y="7" width="5" height="5"/><rect x="1" y="8" width="3" height="3" fill="white"/><rect x="2" y="9" width="1" height="1"/>
+  </g>
+  <!-- Valid banner overlay -->
+  <rect x="0" y="0" width="220" height="150" rx="5" fill="none" stroke="rgba(34,197,94,0.6)" stroke-width="3"/>
+  <rect x="55" y="60" width="110" height="22" rx="4" fill="rgba(21,128,61,0.85)"/>
+  <text x="110" y="75" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="white" text-anchor="middle" letter-spacing="1">✓ VALID DESIGN</text>
+</svg>`;
+}
+
+// Color helpers
+function shadeHex(hex, amt) {
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  const clamp=(v)=>Math.min(255,Math.max(0,v));
+  return `#${clamp(r+amt).toString(16).padStart(2,'0')}${clamp(g+amt).toString(16).padStart(2,'0')}${clamp(b+amt).toString(16).padStart(2,'0')}`;
+}
+
+// ── DATA
+// VSP CONFIRMED: sticker issued in 2025 = green (expires 2026), issued in 2026 = blue (expires 2027)
+
+// OLD_COLORS keyed by ISSUE year (sticker was placed on car this year)
+// Colors are approximate/unconfirmed for pre-2025
+const OLD_COLORS = {
+  2019: '#7c3aed', // violet approx
+  2020: '#9f1239', // rose/maroon approx
+  2021: '#581c87', // purple approx
+  2022: '#1e3a8a', // dark blue approx
+  2023: '#991b1b', // red approx
+  2024: '#92400e', // amber approx
+};
+
+// Registration decal colors (approximate — confirmed: 2010=blue, 2014=red from plate photos)
+const TAG_COLORS = {
+  2026:{bg:'#1d4ed8',t:'white'}, 2025:{bg:'#15803d',t:'white'},
+  2024:{bg:'#b45309',t:'white'}, 2023:{bg:'#b91c1c',t:'white'},
+  2022:{bg:'#6d28d9',t:'white'}, 2021:{bg:'#0f766e',t:'white'},
+  2020:{bg:'#dc2626',t:'white'},
+};
+
+// ── BUILD
+function build() {
+  const now = new Date();
+  const cY = now.getFullYear(), cM = now.getMonth();
+
+  document.getElementById('today-disp').textContent = `${MN[cM]} ${cY}`;
+
+  // Grace period rule: sticker is enforceable starting the 1st of the 4th month after expiration.
+  // E.g., expired Jan → enforceable May 1. expired Dec → enforceable Apr 1 next year.
+  function isEnforceable(expYr, expMo) {
+    const enfMo = (expMo + 4) % 12;
+    const enfYr = expYr + Math.floor((expMo + 4) / 12);
+    return (cY > enfYr) || (cY === enfYr && cM >= enfMo);
+  }
+
+  // Label showing when a sticker became enforceable
+  function enfLabel(expYr, expMo) {
+    const enfMo = (expMo + 4) % 12;
+    const enfYr = expYr + Math.floor((expMo + 4) / 12);
+    const mAgo = (cY - enfYr) * 12 + (cM - enfMo);
+    if (mAgo === 0) return `Enforceable this month`;
+    if (mAgo < 0)   return `Enforceable ${MN[enfMo]} ${enfYr}`;
+    return `Enforceable since ${MN[enfMo]} ${enfYr}`;
+  }
+
+  function mAgo(y,m){ return (cY-y)*12+(cM-m); }
+
+  // ── BLANK DESIGN REFERENCE (2027→2020, newest first)
+  const rowBlank = document.getElementById('row-blank');
+  // New design first: expYr 2027 (blue), 2026 (green)
+  [
+    { label: 'Expires 2027 — Blue',  expYr: 2027, bg: '#1d4ed8' },
+    { label: 'Expires 2026 — Green', expYr: 2026, bg: '#15803d' },
+  ].forEach(({ label, expYr, bg }) => {
+    const w = document.createElement('div');
+    w.className = 'sticker-wrap';
+    w.innerHTML = stickerBlank(label, expYr, bg)
+      + `<div class="exp-label">${label}</div>`
+      + `<div class="exp-pill" style="background:rgba(148,163,184,0.1);border-color:rgba(148,163,184,0.3);color:#94a3b8;">Design Reference</div>`;
+    rowBlank.appendChild(w);
+  });
+  // Old design: expYr 2025→2020 (newest old first)
+  for (let expYr = 2025; expYr >= 2020; expYr--) {
+    const issYr = expYr - 1;
+    const color = OLD_COLORS[issYr] || '#374151';
+    const w = document.createElement('div');
+    w.className = 'sticker-wrap';
+    w.innerHTML = stickerBlankOld(`Expires ${expYr}`, expYr, color)
+      + `<div class="exp-label">Expires ${expYr} — Old Design</div>`
+      + `<div class="exp-pill" style="background:rgba(148,163,184,0.1);border-color:rgba(148,163,184,0.3);color:#94a3b8;">Design Reference</div>`;
+    rowBlank.appendChild(w);
+  }
+
+  // ── EXPIRED NEW DESIGN (green, expires 2026) — enforceable only
+  const g25 = [];
+  for (let m = 0; m < 12; m++) {
+    if (isEnforceable(2026, m)) g25.push({ mo: m, yr: 2026 });
+  }
+  g25.sort((a, b) => mAgo(a.yr,a.mo) - mAgo(b.yr,b.mo)); // newest (least expired) first
+
+  const row25 = document.getElementById('row-2025');
+  g25.forEach(({ mo, yr }) => {
+    const w = document.createElement('div');
+    w.className = 'sticker-wrap';
+    w.innerHTML = stickerNew(mo, yr, '#15803d')
+      + `<div class="exp-label">${MN[mo]} ${yr}</div>`
+      + `<div class="exp-pill">${enfLabel(yr, mo)}</div>`;
+    row25.appendChild(w);
+  });
+
+  // ── EXPIRED OLD DESIGN — back to 2020, enforceable only
+  const old = [];
+  // expYr 2025 down to 2020 (issued 2024–2019)
+  for (let expYr = 2025; expYr >= 2020; expYr--) {
+    const issYr = expYr - 1;
+    for (let m = 0; m < 12; m++) {
+      if (isEnforceable(expYr, m)) old.push({ mo: m, yr: expYr, issYr });
+    }
+  }
+  old.sort((a, b) => mAgo(a.yr,a.mo) - mAgo(b.yr,b.mo)); // newest (least expired) first
+
+  const rowOld = document.getElementById('row-old');
+  old.forEach(({ mo, yr, issYr }) => {
+    const color = OLD_COLORS[issYr] || '#374151';
+    const w = document.createElement('div');
+    w.className = 'sticker-wrap';
+    w.innerHTML = stickerOld(mo, yr, color)
+      + `<div class="exp-label">${MN[mo]} ${yr}</div>`
+      + `<div class="exp-pill">${enfLabel(yr, mo)}</div>`;
+    rowOld.appendChild(w);
+  });
+
+  // ── REGISTRATION TAGS — back to 2020, enforceable only
+  const tags = [];
+  for (let y = cY; y >= 2020; y--) {
+    for (let m = 11; m >= 0; m--) {
+      if (isEnforceable(y, m)) tags.push({ mo: m, yr: y });
+    }
+  }
+  tags.sort((a, b) => mAgo(a.yr,a.mo) - mAgo(b.yr,b.mo)); // newest first
+
+  const rowTags = document.getElementById('row-tags');
+  tags.slice(0, 16).forEach(({ mo, yr }) => {
+    const c = TAG_COLORS[yr] || { bg: '#374151', t: 'white' };
+    const w = document.createElement('div');
+    w.className = 'sticker-wrap';
+    w.innerHTML = stickerTag(mo, yr, c.bg, c.t)
+      + `<div class="exp-label">${MN[mo]} ${yr}</div>`
+      + `<div class="exp-pill">${enfLabel(yr, mo)}</div>`;
+    rowTags.appendChild(w);
+  });
+}
+
+build();
+</script>
+</body>
+</html>
